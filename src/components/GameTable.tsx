@@ -1,16 +1,14 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 type Role = 'Мирний' | 'Шериф' | 'Маф' | 'Дон';
-type Status = 'Жив' | 'Заголосований' | 'Убран ночью' | 'Убран за фоли';
 type Team = 'мирні' | 'мафія';
 
 interface Player {
   seat: number;
   name: string;
   role: Role;
-  status: Status;
   fouls: number;
 }
 
@@ -20,46 +18,104 @@ interface DayData {
   night: boolean;
 }
 
-const ROLES: Role[] = ['Мирний', 'Шериф', 'Маф', 'Дон'];
-const STATUSES: Status[] = ['Жив', 'Заголосований', 'Убран ночью', 'Убран за фоли'];
-
-const ROLE_COLORS: Record<Role, string> = {
-  'Мирний': 'bg-blue-100 text-blue-900',
-  'Шериф': 'bg-yellow-100 text-yellow-900',
-  'Маф': 'bg-red-100 text-red-900',
-  'Дон': 'bg-purple-100 text-purple-900',
+const ROLES: Role[] = ['Мирний', 'Маф', 'Дон', 'Шериф'];
+const ROLE_TEAM: Record<Role, Team> = {
+  'Мирний': 'мирні', 'Шериф': 'мирні', 'Маф': 'мафія', 'Дон': 'мафія',
 };
-
-const STATUS_COLORS: Record<Status, string> = {
-  'Жив': 'text-green-700',
-  'Заголосований': 'text-amber-700',
-  'Убран ночью': 'text-gray-500',
-  'Убран за фоли': 'text-red-700',
+const ROLE_ICON: Record<Role, string> = {
+  'Мирний': '', 'Маф': '', 'Дон': '🎩', 'Шериф': '⭐',
 };
 
 const DAY_BG = [
-  'bg-yellow-50',
-  'bg-orange-50',
-  'bg-lime-50',
-  'bg-cyan-50',
-  'bg-purple-50',
-  'bg-pink-50',
-  'bg-green-50',
+  'rgba(250,204,21,0.08)', 'rgba(251,146,60,0.08)', 'rgba(163,230,53,0.08)',
+  'rgba(34,211,238,0.08)', 'rgba(167,139,250,0.08)', 'rgba(249,168,212,0.08)',
+  'rgba(74,222,128,0.08)',
 ];
+
+function randomRoles(): Role[] {
+  const roles: Role[] = ['Маф','Маф','Дон','Шериф','Мирний','Мирний','Мирний','Мирний','Мирний','Мирний'];
+  for (let i = roles.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [roles[i], roles[j]] = [roles[j], roles[i]];
+  }
+  return roles;
+}
 
 function initPlayers(): Player[] {
   return Array.from({ length: 10 }, (_, i) => ({
-    seat: i + 1,
-    name: '',
-    role: 'Мирний',
-    status: 'Жив',
-    fouls: 0,
+    seat: i + 1, name: '', role: 'Мирний', fouls: 0,
   }));
 }
 
 function initDays(): DayData[][] {
   return Array.from({ length: 10 }, () =>
     Array.from({ length: 7 }, () => ({ nom: false, votes: 0, night: false }))
+  );
+}
+
+function NameStyle({ name, role }: { name: string; role: Role }) {
+  const icon = ROLE_ICON[role];
+  let cls = 'font-bold text-sm ';
+  if (role === 'Мирний') cls += 'text-red-600';
+  else if (role === 'Маф') cls += 'text-gray-900';
+  else if (role === 'Дон') cls += 'text-gray-900';
+  else if (role === 'Шериф') cls += 'text-red-600';
+  return (
+    <span className={cls}>
+      {name}{icon && <span className="ml-0.5 text-xs">{icon}</span>}
+    </span>
+  );
+}
+
+function AutocompleteInput({ value, onChange, placeholder }: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleInput = async (v: string) => {
+    onChange(v);
+    if (v.length < 1) { setSuggestions([]); setOpen(false); return; }
+    try {
+      const res = await fetch(`/api/players?q=${encodeURIComponent(v)}`);
+      const data = await res.json();
+      setSuggestions(data);
+      setOpen(data.length > 0);
+    } catch { setSuggestions([]); }
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <input
+        type="text"
+        value={value}
+        onChange={e => handleInput(e.target.value)}
+        onFocus={() => suggestions.length > 0 && setOpen(true)}
+        placeholder={placeholder}
+        className="w-full border border-gray-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+      />
+      {open && (
+        <div className="absolute left-0 top-full mt-0.5 bg-white border border-gray-200 rounded shadow-lg z-30 min-w-full">
+          {suggestions.map(s => (
+            <div key={s} className="px-2 py-1 text-xs hover:bg-blue-50 cursor-pointer"
+              onMouseDown={() => { onChange(s); setOpen(false); }}>
+              {s}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -78,30 +134,40 @@ export default function GameTable() {
     setTimeout(() => setMsg(''), 3000);
   };
 
-  const updatePlayerField = useCallback((pi: number, field: keyof Player, val: string | number) => {
-    setPlayers(prev => prev.map((p, i) => i === pi ? { ...p, [field]: val } : p));
+  const cycleRole = useCallback((pi: number) => {
+    if (phase !== 'setup') return;
+    setPlayers(prev => prev.map((p, i) => {
+      if (i !== pi) return p;
+      const idx = (ROLES.indexOf(p.role) + 1) % ROLES.length;
+      return { ...p, role: ROLES[idx] };
+    }));
+  }, [phase]);
+
+  const randomizeRoles = useCallback(() => {
+    if (phase !== 'setup') return;
+    const roles = randomRoles();
+    setPlayers(prev => prev.map((p, i) => ({ ...p, role: roles[i] })));
+  }, [phase]);
+
+  const updateName = useCallback((pi: number, name: string) => {
+    setPlayers(prev => prev.map((p, i) => i === pi ? { ...p, name } : p));
   }, []);
 
   const addFoul = useCallback((pi: number) => {
-    setPlayers(prev => prev.map((p, i) => {
-      if (i !== pi) return p;
-      const f = Math.min(p.fouls + 1, 4);
-      return { ...p, fouls: f, status: f >= 4 ? 'Убран за фоли' : p.status };
-    }));
+    setPlayers(prev => prev.map((p, i) =>
+      i !== pi ? p : { ...p, fouls: Math.min(p.fouls + 1, 4) }
+    ));
   }, []);
 
   const removeFoul = useCallback((pi: number) => {
-    setPlayers(prev => prev.map((p, i) => {
-      if (i !== pi) return p;
-      const f = Math.max(0, p.fouls - 1);
-      return { ...p, fouls: f, status: p.status === 'Убран за фоли' && f < 4 ? 'Жив' : p.status };
-    }));
+    setPlayers(prev => prev.map((p, i) =>
+      i !== pi ? p : { ...p, fouls: Math.max(0, p.fouls - 1) }
+    ));
   }, []);
 
   const updateDay = useCallback((pi: number, di: number, field: keyof DayData, val: boolean | number) => {
     setDays(prev => {
       const next = prev.map(r => [...r]);
-      next[pi] = [...next[pi]];
       next[pi][di] = { ...next[pi][di], [field]: val };
       return next;
     });
@@ -111,14 +177,18 @@ export default function GameTable() {
     setSaving(true);
     try {
       await fetch('/api/init');
+      const names = players.map(p => p.name || `Гравець ${p.seat}`);
+      await fetch('/api/players', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: names.filter(n => !n.startsWith('Гравець')) }),
+      });
       const res = await fetch('/api/games', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          players: players.map(p => ({
-            seat: p.seat,
-            name: p.name || `Гравець ${p.seat}`,
-            role: p.role,
+          players: players.map((p, i) => ({
+            seat: p.seat, name: names[i], role: p.role,
           })),
         }),
       });
@@ -152,17 +222,12 @@ export default function GameTable() {
   };
 
   const resetGame = () => {
-    setPhase('setup');
-    setPlayers(initPlayers());
-    setDays(initDays());
-    setGameId(null);
-    setWinner(null);
-    setMsg('');
+    setPhase('setup'); setPlayers(initPlayers()); setDays(initDays());
+    setGameId(null); setWinner(null); setMsg('');
   };
 
   return (
     <div className="min-h-screen bg-white text-gray-900 text-xs">
-      {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gray-50 sticky top-0 z-20">
         <div className="flex items-center gap-2">
           <span className="text-lg">🎭</span>
@@ -171,59 +236,45 @@ export default function GameTable() {
         </div>
         <div className="flex gap-2">
           {phase === 'setup' && (
-            <button
-              onClick={startGame}
-              disabled={saving}
-              className="bg-green-700 text-white px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
-            >
+            <button onClick={startGame} disabled={saving}
+              className="bg-green-700 text-white px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50">
               {saving ? 'Збереження...' : '▶ Розпочати гру'}
             </button>
           )}
           {phase === 'playing' && (
-            <button
-              onClick={() => setShowModal(true)}
-              className="bg-red-700 text-white px-3 py-1.5 rounded text-xs font-medium"
-            >
+            <button onClick={() => setShowModal(true)}
+              className="bg-red-700 text-white px-3 py-1.5 rounded text-xs font-medium">
               🏁 Кінець гри
             </button>
           )}
           {phase === 'finished' && (
-            <button
-              onClick={resetGame}
-              className="bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-medium"
-            >
+            <button onClick={resetGame}
+              className="bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-medium">
               + Нова гра
             </button>
           )}
         </div>
       </div>
 
-      {/* Message */}
       {msg && (
-        <div className="bg-blue-50 text-blue-800 text-center py-1.5 text-xs border-b border-blue-100">
-          {msg}
-        </div>
+        <div className="bg-blue-50 text-blue-800 text-center py-1.5 text-xs border-b border-blue-100">{msg}</div>
       )}
-
-      {/* Winner */}
       {winner && (
         <div className={`text-center py-2 text-sm font-semibold ${winner === 'мирні' ? 'bg-blue-700 text-white' : 'bg-red-800 text-white'}`}>
           {winner === 'мирні' ? '🏙️ Перемогли Мирні!' : '🔫 Перемогла Мафія!'}
         </div>
       )}
 
-      {/* Table */}
       <div className="overflow-x-auto">
         <table className="border-collapse w-full" style={{ minWidth: 900 }}>
           <thead>
             <tr className="bg-gray-100 text-gray-600">
               <th className="sticky left-0 bg-gray-100 z-10 border border-gray-300 px-1 py-1 w-7">#</th>
-              <th className="sticky left-7 bg-gray-100 z-10 border border-gray-300 px-2 py-1 text-left w-24">Ім&apos;я</th>
-              <th className="border border-gray-300 px-1 py-1 w-20">Роль</th>
-              <th className="border border-gray-300 px-1 py-1 w-24">Статус</th>
-              <th className="border border-gray-300 px-1 py-1 w-16">Фоли</th>
+              <th className="sticky left-7 bg-gray-100 z-10 border border-gray-300 px-2 py-1 text-left w-28">Ім&apos;я</th>
+              <th className="border border-gray-300 px-1 py-1 w-14">Фоли</th>
               {Array.from({ length: 7 }, (_, i) => (
-                <th key={i} colSpan={3} className={`border border-gray-300 px-1 py-1 text-center ${DAY_BG[i]}`}>
+                <th key={i} colSpan={3} className="border border-gray-300 px-1 py-1 text-center"
+                  style={{ background: DAY_BG[i] }}>
                   День {i + 1}
                 </th>
               ))}
@@ -232,12 +283,10 @@ export default function GameTable() {
               <th className="sticky left-0 bg-gray-50 z-10 border border-gray-300" />
               <th className="sticky left-7 bg-gray-50 z-10 border border-gray-300" />
               <th className="border border-gray-300" />
-              <th className="border border-gray-300" />
-              <th className="border border-gray-300" />
               {Array.from({ length: 7 }, (_, i) => (
                 <>
-                  <th key={`${i}a`} className={`border border-gray-300 px-1 py-0.5 font-normal ${DAY_BG[i]}`}>Вист.</th>
-                  <th key={`${i}b`} className={`border border-gray-300 px-1 py-0.5 font-normal ${DAY_BG[i]}`}>Гол.</th>
+                  <th key={`${i}a`} className="border border-gray-300 px-1 py-0.5 font-normal" style={{ background: DAY_BG[i] }}>Вист.</th>
+                  <th key={`${i}b`} className="border border-gray-300 px-1 py-0.5 font-normal" style={{ background: DAY_BG[i] }}>Гол.</th>
                   <th key={`${i}c`} className="border border-gray-300 px-1 py-0.5 font-normal bg-gray-100">Ніч</th>
                 </>
               ))}
@@ -245,109 +294,71 @@ export default function GameTable() {
           </thead>
           <tbody>
             {players.map((p, pi) => {
-              const elim = p.status !== 'Жив';
+              const elim = p.fouls >= 4;
+              const rowBg = pi % 2 === 0 ? 'bg-white' : 'bg-gray-50';
               return (
-                <tr key={pi} className={elim ? 'opacity-50' : pi % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className={`sticky left-0 z-10 border border-gray-300 text-center font-medium text-gray-500 ${pi % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                    {p.seat}
+                <tr key={pi} className={`${rowBg} ${elim ? 'opacity-50' : ''}`}>
+                  <td className={`sticky left-0 z-10 border border-gray-300 text-center ${rowBg}`}>
+                    <button onClick={() => cycleRole(pi)} disabled={phase !== 'setup'}
+                      title="Натисни щоб змінити роль"
+                      className={`w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center mx-auto transition-colors ${
+                        phase === 'setup'
+                          ? 'bg-gray-200 hover:bg-blue-100 cursor-pointer border border-gray-300'
+                          : 'bg-gray-100 border border-gray-200 cursor-default'
+                      }`}>
+                      {p.seat}
+                    </button>
                   </td>
-                  <td className={`sticky left-7 z-10 border border-gray-300 px-1 ${pi % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                  <td className={`sticky left-7 z-10 border border-gray-300 px-1 ${rowBg}`}>
                     {phase === 'setup' ? (
-                      <input
-                        type="text"
+                      <AutocompleteInput
                         value={p.name}
-                        onChange={e => updatePlayerField(pi, 'name', e.target.value)}
+                        onChange={v => updateName(pi, v)}
                         placeholder={`Гравець ${p.seat}`}
-                        className="w-full border border-gray-300 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
                       />
                     ) : (
-                      <span className={`font-medium ${elim ? 'line-through text-gray-400' : ''}`}>
-                        {p.name || `Гравець ${p.seat}`}
-                      </span>
+                      <NameStyle name={p.name || `Гравець ${p.seat}`} role={p.role} />
                     )}
                   </td>
-
-                  {/* Role */}
-                  <td className="border border-gray-300 px-1 py-0.5 text-center">
-                    {phase === 'setup' ? (
-                      <select
-                        value={p.role}
-                        onChange={e => updatePlayerField(pi, 'role', e.target.value)}
-                        className="text-xs border border-gray-300 rounded px-1 py-0.5 w-full"
-                      >
-                        {ROLES.map(r => <option key={r}>{r}</option>)}
-                      </select>
-                    ) : (
-                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${ROLE_COLORS[p.role]}`}>
-                        {p.role}
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Status */}
-                  <td className="border border-gray-300 px-1 py-0.5 text-center">
-                    {phase !== 'setup' ? (
-                      <select
-                        value={p.status}
-                        onChange={e => updatePlayerField(pi, 'status', e.target.value as Status)}
-                        className={`text-xs border-0 bg-transparent w-full font-medium focus:outline-none ${STATUS_COLORS[p.status]}`}
-                      >
-                        {STATUSES.map(s => <option key={s}>{s}</option>)}
-                      </select>
-                    ) : (
-                      <span className="text-gray-300">—</span>
-                    )}
-                  </td>
-
-                  {/* Fouls */}
-                  <td className="border border-gray-300 px-1 py-0.5">
+                  <td className={`border border-gray-300 px-1 py-0.5 ${rowBg}`}>
                     <div className="flex items-center justify-center gap-0.5">
                       {Array.from({ length: 4 }, (_, fi) => (
-                        <button
-                          key={fi}
-                          onClick={() => phase !== 'setup' && addFoul(pi)}
+                        <button key={fi} onClick={() => phase !== 'setup' && addFoul(pi)}
                           disabled={phase === 'setup'}
-                          className={`w-4 h-4 rounded-sm text-xs flex items-center justify-center border transition-colors ${
+                          className={`w-4 h-4 rounded-sm text-xs flex items-center justify-center border ${
                             fi < p.fouls
-                              ? fi >= 3
-                                ? 'bg-red-500 border-red-600 text-white'
-                                : 'bg-amber-400 border-amber-500 text-white'
-                              : 'bg-gray-100 border-gray-300 text-gray-300'
-                          }`}
-                        >
+                              ? fi >= 3 ? 'bg-red-500 border-red-600 text-white' : 'bg-amber-400 border-amber-500 text-white'
+                              : 'bg-gray-100 border-gray-300'
+                          }`}>
                           {fi < p.fouls ? '✕' : ''}
                         </button>
                       ))}
                       {phase !== 'setup' && p.fouls > 0 && (
-                        <button
-                          onClick={() => removeFoul(pi)}
-                          className="w-3.5 h-3.5 rounded-sm bg-gray-200 border border-gray-300 text-gray-500 flex items-center justify-center ml-0.5 text-xs"
-                        >−</button>
+                        <button onClick={() => removeFoul(pi)}
+                          className="w-3.5 h-3.5 rounded-sm bg-gray-200 border border-gray-300 text-gray-500 flex items-center justify-center ml-0.5">−</button>
                       )}
                     </div>
                   </td>
-
-                  {/* Days */}
                   {Array.from({ length: 7 }, (_, di) => {
                     const d = days[pi][di];
-                    const disabled = phase === 'setup' || elim;
+                    const off = phase === 'setup' || elim;
                     return (
                       <>
-                        <td key={`${pi}-${di}-n`} className={`border border-gray-300 text-center ${DAY_BG[di]}`}>
-                          <input type="checkbox" checked={d.nom} disabled={disabled}
+                        <td key={`n${di}`} className="border border-gray-300 text-center" style={{ background: DAY_BG[di] }}>
+                          <input type="checkbox" checked={d.nom} disabled={off}
                             onChange={e => updateDay(pi, di, 'nom', e.target.checked)}
-                            className="w-3.5 h-3.5 cursor-pointer disabled:opacity-30" />
+                            className="w-3.5 h-3.5 disabled:opacity-30" />
                         </td>
-                        <td key={`${pi}-${di}-v`} className={`border border-gray-300 text-center ${DAY_BG[di]}`}>
-                          <input type="number" min={0} max={10} value={d.votes || ''} disabled={disabled}
+                        <td key={`v${di}`} className="border border-gray-300 text-center" style={{ background: DAY_BG[di] }}>
+                          <input type="number" min={0} max={10} value={d.votes || ''} disabled={off}
                             onChange={e => updateDay(pi, di, 'votes', parseInt(e.target.value) || 0)}
                             placeholder="—"
                             className="w-7 text-center text-xs border border-gray-200 rounded bg-white disabled:opacity-30 focus:outline-none" />
                         </td>
-                        <td key={`${pi}-${di}-k`} className="border border-gray-300 text-center bg-gray-100">
-                          <input type="checkbox" checked={d.night} disabled={disabled}
+                        <td key={`k${di}`} className="border border-gray-300 text-center bg-gray-100">
+                          <input type="checkbox" checked={d.night} disabled={off}
                             onChange={e => updateDay(pi, di, 'night', e.target.checked)}
-                            className="w-3.5 h-3.5 cursor-pointer disabled:opacity-30" />
+                            className="w-3.5 h-3.5 disabled:opacity-30" />
                         </td>
                       </>
                     );
@@ -355,11 +366,30 @@ export default function GameTable() {
                 </tr>
               );
             })}
+            {phase === 'setup' && (
+              <tr>
+                <td colSpan={3 + 7 * 3} className="border border-gray-300 px-2 py-1.5 bg-gray-50">
+                  <button onClick={randomizeRoles}
+                    className="flex items-center gap-2 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-medium transition-colors">
+                    <span className="text-sm">🎲</span> C — випадкові ролі
+                  </button>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
-      {/* Finish modal */}
+      {phase === 'setup' && (
+        <div className="flex gap-4 px-3 py-2 text-xs text-gray-500 flex-wrap border-t border-gray-100">
+          <span>Натисни # щоб змінити роль:</span>
+          <span className="font-bold text-red-600">Мирний</span>
+          <span className="font-bold text-gray-900">Маф</span>
+          <span className="font-bold text-gray-900">Дон 🎩</span>
+          <span className="font-bold text-red-600">Шериф ⭐</span>
+        </div>
+      )}
+
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-72 shadow-xl border border-gray-200">
@@ -376,9 +406,7 @@ export default function GameTable() {
               </button>
             </div>
             <button onClick={() => setShowModal(false)}
-              className="w-full mt-3 text-gray-400 text-xs py-2 hover:text-gray-600">
-              Скасувати
-            </button>
+              className="w-full mt-3 text-gray-400 text-xs py-2 hover:text-gray-600">Скасувати</button>
           </div>
         </div>
       )}

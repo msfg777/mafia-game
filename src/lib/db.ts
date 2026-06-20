@@ -11,7 +11,6 @@ export async function initDB() {
       finished_at TIMESTAMP
     )
   `;
-
   await sql`
     CREATE TABLE IF NOT EXISTS game_players (
       id SERIAL PRIMARY KEY,
@@ -22,7 +21,6 @@ export async function initDB() {
       score INTEGER DEFAULT 0
     )
   `;
-
   await sql`
     CREATE TABLE IF NOT EXISTS game_days (
       id SERIAL PRIMARY KEY,
@@ -31,10 +29,15 @@ export async function initDB() {
       seat INTEGER NOT NULL,
       nominated BOOLEAN DEFAULT FALSE,
       votes INTEGER DEFAULT 0,
-      killed_night BOOLEAN DEFAULT FALSE,
-      fouls INTEGER DEFAULT 0,
-      eliminated BOOLEAN DEFAULT FALSE,
-      elimination_reason VARCHAR(20)
+      killed_night BOOLEAN DEFAULT FALSE
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS players_registry (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(100) UNIQUE NOT NULL,
+      last_seen TIMESTAMP DEFAULT NOW(),
+      games_count INTEGER DEFAULT 1
     )
   `;
 }
