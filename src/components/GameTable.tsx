@@ -88,29 +88,35 @@ function AutocompleteInput({ value, onChange, placeholder }: {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const handleInput = async (v: string) => {
-    onChange(v);
+  const fetchSuggestions = async (v: string) => {
     if (v.length < 1) { setSuggestions([]); setOpen(false); return; }
     try {
       const res = await fetch(`/api/players?q=${encodeURIComponent(v)}`);
       const data = await res.json();
-      setSuggestions(Array.isArray(data) ? data : []);
-      setOpen(Array.isArray(data) && data.length > 0);
-    } catch { setSuggestions([]); }
+      const list = Array.isArray(data) ? data : [];
+      setSuggestions(list);
+      setOpen(list.length > 0);
+    } catch { setSuggestions([]); setOpen(false); }
   };
 
   return (
     <div ref={ref} className="relative flex-1">
-      <input type="text" value={value} onChange={e => handleInput(e.target.value)}
-        onFocus={() => suggestions.length > 0 && setOpen(true)}
+      <input
+        type="text"
+        value={value}
+        onChange={e => { onChange(e.target.value); fetchSuggestions(e.target.value); }}
+        onFocus={() => { if (value.length > 0) fetchSuggestions(value); }}
         placeholder={placeholder}
+        autoComplete="off"
         className="w-full border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
       />
-      {open && (
+      {open && suggestions.length > 0 && (
         <div className="absolute left-0 top-full mt-0.5 bg-white border border-gray-200 rounded shadow-lg z-50 min-w-full">
           {suggestions.map(s => (
             <div key={s} className="px-2 py-1.5 text-xs hover:bg-blue-50 cursor-pointer"
-              onMouseDown={() => { onChange(s); setOpen(false); setSuggestions([]); }}>{s}</div>
+              onMouseDown={e => { e.preventDefault(); onChange(s); setOpen(false); setSuggestions([]); }}>
+              {s}
+            </div>
           ))}
         </div>
       )}
