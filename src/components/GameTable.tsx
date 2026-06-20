@@ -249,7 +249,7 @@ export default function GameTable() {
     setGameId(null); setWinner(null); setMsg('');
   };
 
-  const ROW_H = 'h-10';
+  const TD_H = { height: '44px' };
 
   return (
     <div className="min-h-screen bg-white text-gray-900 text-xs">
@@ -310,13 +310,13 @@ export default function GameTable() {
                 const rowBg = pi % 2 === 0 ? 'bg-white' : 'bg-gray-50';
                 return (
                   <tr key={pi} className={`${rowBg} ${elim ? 'opacity-50' : ''}`}>
-                    <td className={`border border-gray-300 text-center ${rowBg}`}>
+                    <td className={`border border-gray-300 text-center ${rowBg}`} style={TD_H}>
                       <button onClick={() => cycleRole(pi)} disabled={phase !== 'setup'}
                         className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center mx-auto ${phase === 'setup' ? 'bg-gray-200 hover:bg-blue-100 cursor-pointer border border-gray-300' : 'bg-gray-100 border border-gray-200 cursor-default'}`}>
                         {p.seat}
                       </button>
                     </td>
-                    <td className={`border border-gray-300 px-1 ${rowBg} ${ROW_H}`}>
+                    <td className={`border border-gray-300 px-1 ${rowBg}`} style={TD_H}>
                       {phase === 'setup' ? (
                         <div className="flex items-center gap-1.5">
                           <RoleDot role={p.role} />
@@ -329,7 +329,7 @@ export default function GameTable() {
                         </div>
                       )}
                     </td>
-                    <td className={`border border-gray-300 px-1 ${rowBg}`}>
+                    <td className={`border border-gray-300 px-1 ${rowBg}`} style={TD_H}>
                       <div className="flex items-center justify-center gap-0.5">
                         {Array.from({ length: 4 }, (_, fi) => (
                           <button key={fi} onClick={() => phase !== 'setup' && addFoul(pi)} disabled={phase === 'setup'}
@@ -394,12 +394,12 @@ export default function GameTable() {
                       const nominated = d.nomOrder > 0;
                       return (
                         <>
-                          <td key={`k${di}`} className={`border border-gray-300 text-center ${ROW_H}`} style={{ background: DAY_BG[di] }}>
+                          <td key={`k${di}`} className="border border-gray-300 text-center" style={{ ...TD_H, background: DAY_BG[di] }}>
                             <input type="checkbox" checked={d.night} disabled={off}
                               onChange={e => updateDay(pi, di, 'night', e.target.checked)}
                               className="w-4 h-4 disabled:opacity-30" />
                           </td>
-                          <td key={`n${di}`} className={`border border-gray-300 text-center ${ROW_H}`} style={{ background: DAY_BG[di] }}>
+                          <td key={`n${di}`} className="border border-gray-300 text-center" style={{ ...TD_H, background: DAY_BG[di] }}>
                             <div className="flex flex-col items-center justify-center gap-0.5">
                               <input type="checkbox" checked={nominated} disabled={off}
                                 onChange={e => toggleNom(pi, di, e.target.checked)}
@@ -409,7 +409,7 @@ export default function GameTable() {
                               )}
                             </div>
                           </td>
-                          <td key={`v${di}`} className={`border border-gray-300 text-center ${ROW_H}`} style={{ background: DAY_BG[di] }}>
+                          <td key={`v${di}`} className="border border-gray-300 text-center" style={{ ...TD_H, background: DAY_BG[di] }}>
                             <select
                               value={d.votes || ''}
                               disabled={off || !nominated}
