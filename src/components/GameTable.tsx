@@ -270,7 +270,7 @@ export default function GameTable() {
           <thead>
             <tr className="bg-gray-100 text-gray-600">
               <th className="border border-gray-300 px-1 py-2 w-8 text-center sticky left-0 bg-gray-100 z-10">#</th>
-              <th className="border border-gray-300 px-2 py-2 text-left w-32 sticky left-8 bg-gray-100 z-10">Ім&apos;я</th>
+              <th className="border border-gray-300 px-2 py-2 text-left w-32 bg-gray-100">Ім&apos;я</th>
               <th className="border border-gray-300 px-1 py-2 w-16 text-center">Фоли</th>
               {Array.from({ length: 7 }, (_, i) => (
                 <th key={i} colSpan={3} className="border border-gray-300 px-1 py-2 text-center" style={{ background: DAY_BG[i] }}>
@@ -280,7 +280,7 @@ export default function GameTable() {
             </tr>
             <tr className="bg-gray-50 text-gray-500">
               <th className="border border-gray-300 sticky left-0 bg-gray-50 z-10" />
-              <th className="border border-gray-300 sticky left-8 bg-gray-50 z-10" />
+              <th className="border border-gray-300 bg-gray-50" />
               <th className="border border-gray-300" />
               {Array.from({ length: 7 }, (_, i) => (
                 <>
@@ -303,7 +303,7 @@ export default function GameTable() {
                       {p.seat}
                     </button>
                   </td>
-                  <td className="border border-gray-300 px-1 sticky left-8 z-10" style={{ background: rowBg, height: 44 }}>
+                  <td className="border border-gray-300 px-1" style={{ background: rowBg, height: 44 }}>
                     {phase === 'setup' ? (
                       <div className="flex items-center gap-1.5">
                         <RoleDot role={p.role} />
