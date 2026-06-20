@@ -311,14 +311,19 @@ export default function GameTable() {
                   </td>
                   <td className={`sticky left-7 z-10 border border-gray-300 px-1 ${rowBg}`}>
                     {phase === 'setup' ? (
-                      <AutocompleteInput
-                        value={p.name}
-                        onChange={v => updateName(pi, v)}
-                        placeholder={`Гравець ${p.seat}`}
-                      />
-                    ) : (
-                      <NameStyle name={p.name || `Гравець ${p.seat}`} role={p.role} />
-                    )}
+  <div className="flex flex-col gap-0.5">
+    <AutocompleteInput
+      value={p.name}
+      onChange={v => updateName(pi, v)}
+      placeholder={`Гравець ${p.seat}`}
+    />
+    {p.name && (
+      <NameStyle name={p.name} role={p.role} />
+    )}
+  </div>
+) : (
+  <NameStyle name={p.name || `Гравець ${p.seat}`} role={p.role} />
+)}
                   </td>
                   <td className={`border border-gray-300 px-1 py-0.5 ${rowBg}`}>
                     <div className="flex items-center justify-center gap-0.5">
