@@ -18,7 +18,8 @@ export async function initDB() {
       seat INTEGER NOT NULL,
       name VARCHAR(100) NOT NULL,
       role VARCHAR(20) NOT NULL,
-      score INTEGER DEFAULT 0
+      score NUMERIC(5,2) DEFAULT 0,
+      best_move_bonus NUMERIC(5,2) DEFAULT 0
     )
   `;
   await sql`

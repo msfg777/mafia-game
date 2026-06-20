@@ -18,16 +18,17 @@ interface DayData {
   night: boolean;
 }
 
+interface BestMove {
+  playerSeat: number | null;
+  guess1: number | null;
+  guess2: number | null;
+  guess3: number | null;
+}
+
 const ROLES: Role[] = ['Мирний', 'Маф', 'Дон', 'Шериф'];
-const ROLE_ICON: Record<Role, string> = {
-  'Мирний': '', 'Маф': '', 'Дон': '🎩', 'Шериф': '⭐',
-};
-const ROLE_COLOR: Record<Role, string> = {
-  'Мирний': '#dc2626', 'Маф': '#111827', 'Дон': '#111827', 'Шериф': '#dc2626',
-};
-const ROLE_TEAM: Record<Role, Team> = {
-  'Мирний': 'мирні', 'Шериф': 'мирні', 'Маф': 'мафія', 'Дон': 'мафія',
-};
+const ROLE_ICON: Record<Role, string> = { 'Мирний': '', 'Маф': '', 'Дон': '🎩', 'Шериф': '⭐' };
+const ROLE_COLOR: Record<Role, string> = { 'Мирний': '#dc2626', 'Маф': '#111827', 'Дон': '#111827', 'Шериф': '#dc2626' };
+const ROLE_TEAM: Record<Role, Team> = { 'Мирний': 'мирні', 'Шериф': 'мирні', 'Маф': 'мафія', 'Дон': 'мафія' };
 
 const DAY_BG = [
   'rgba(250,204,21,0.10)', 'rgba(251,146,60,0.10)', 'rgba(163,230,53,0.10)',
@@ -45,9 +46,7 @@ function randomRoles(): Role[] {
 }
 
 function initPlayers(): Player[] {
-  return Array.from({ length: 10 }, (_, i) => ({
-    seat: i + 1, name: '', role: 'Мирний', fouls: 0,
-  }));
+  return Array.from({ length: 10 }, (_, i) => ({ seat: i + 1, name: '', role: 'Мирний', fouls: 0 }));
 }
 
 function initDays(): DayData[][] {
@@ -56,11 +55,19 @@ function initDays(): DayData[][] {
   );
 }
 
+function useNow() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
+  return now;
+}
+
 function RoleDot({ role }: { role: Role }) {
   const icon = ROLE_ICON[role];
-  const color = ROLE_COLOR[role];
   return (
-    <div className="w-4 h-4 rounded-sm flex items-center justify-center flex-shrink-0" style={{ background: color }}>
+    <div className="w-4 h-4 rounded-sm flex items-center justify-center flex-shrink-0" style={{ background: ROLE_COLOR[role] }}>
       {icon && <span style={{ fontSize: '9px' }}>{icon}</span>}
     </div>
   );
@@ -87,8 +94,8 @@ function AutocompleteInput({ value, onChange, placeholder }: {
     try {
       const res = await fetch(`/api/players?q=${encodeURIComponent(v)}`);
       const data = await res.json();
-      setSuggestions(data);
-      setOpen(data.length > 0);
+      setSuggestions(Array.isArray(data) ? data : []);
+      setOpen(Array.isArray(data) && data.length > 0);
     } catch { setSuggestions([]); }
   };
 
@@ -100,13 +107,33 @@ function AutocompleteInput({ value, onChange, placeholder }: {
         className="w-full border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
       />
       {open && (
-        <div className="absolute left-0 top-full mt-0.5 bg-white border border-gray-200 rounded shadow-lg z-30 min-w-full">
+        <div className="absolute left-0 top-full mt-0.5 bg-white border border-gray-200 rounded shadow-lg z-50 min-w-full">
           {suggestions.map(s => (
             <div key={s} className="px-2 py-1.5 text-xs hover:bg-blue-50 cursor-pointer"
-              onMouseDown={() => { onChange(s); setOpen(false); }}>{s}</div>
+              onMouseDown={() => { onChange(s); setOpen(false); setSuggestions([]); }}>{s}</div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function SeatSelect({ value, onChange, exclude, label }: {
+  value: number | null; onChange: (v: number | null) => void; exclude?: number[]; label: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="text-gray-400" style={{ fontSize: '9px' }}>{label}</span>
+      <select
+        value={value ?? ''}
+        onChange={e => onChange(e.target.value ? parseInt(e.target.value) : null)}
+        className="w-9 text-center border border-gray-300 rounded text-xs py-0.5 focus:outline-none bg-white"
+      >
+        <option value="">—</option>
+        {Array.from({ length: 10 }, (_, i) => i + 1)
+          .filter(n => !exclude?.includes(n) || n === value)
+          .map(n => <option key={n} value={n}>{n}</option>)}
+      </select>
     </div>
   );
 }
@@ -120,8 +147,13 @@ export default function GameTable() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [winner, setWinner] = useState<Team | null>(null);
+  const [bestMove, setBestMove] = useState<BestMove>({ playerSeat: null, guess1: null, guess2: null, guess3: null });
+  const now = useNow();
 
   const showMsg = (text: string) => { setMsg(text); setTimeout(() => setMsg(''), 3000); };
+
+  const dateStr = now.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
 
   const cycleRole = useCallback((pi: number) => {
     if (phase !== 'setup') return;
@@ -181,11 +213,14 @@ export default function GameTable() {
     try {
       await fetch('/api/init');
       const names = players.map(p => p.name || `Гравець ${p.seat}`);
-      await fetch('/api/players', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ names: names.filter(n => !n.startsWith('Гравець')) }),
-      });
+      const realNames = names.filter(n => !n.startsWith('Гравець'));
+      if (realNames.length > 0) {
+        await fetch('/api/players', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names: realNames }),
+        });
+      }
       const res = await fetch('/api/games', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -206,7 +241,7 @@ export default function GameTable() {
       await fetch(`/api/games/${gameId}/finish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ winner: winnerTeam, players, days }),
+        body: JSON.stringify({ winner: winnerTeam, players, days, bestMove }),
       });
       setWinner(winnerTeam);
       setPhase('finished');
@@ -219,16 +254,32 @@ export default function GameTable() {
   const resetGame = () => {
     setPhase('setup'); setPlayers(initPlayers()); setDays(initDays());
     setGameId(null); setWinner(null); setMsg('');
+    setBestMove({ playerSeat: null, guess1: null, guess2: null, guess3: null });
   };
 
   return (
     <div className="min-h-screen bg-white text-gray-900 text-xs">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gray-50 sticky top-0 z-20">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gray-50 sticky top-0 z-20 gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <span className="text-lg">🎭</span>
           <span className="font-semibold text-sm">Мафія</span>
           {gameId && <span className="text-gray-400 text-xs">Гра #{gameId}</span>}
+          <span className="text-gray-400 text-xs ml-1">{dateStr} {timeStr}</span>
         </div>
+
+        {phase === 'playing' && (
+          <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2 py-1 bg-white">
+            <span className="text-gray-500 font-medium mr-1" style={{ fontSize: '10px' }}>🏆 Кращий хід</span>
+            <SeatSelect value={bestMove.playerSeat} onChange={v => setBestMove(p => ({ ...p, playerSeat: v }))} label="Гравець" />
+            <SeatSelect value={bestMove.guess1} onChange={v => setBestMove(p => ({ ...p, guess1: v }))}
+              exclude={[bestMove.guess2, bestMove.guess3].filter(Boolean) as number[]} label="№1" />
+            <SeatSelect value={bestMove.guess2} onChange={v => setBestMove(p => ({ ...p, guess2: v }))}
+              exclude={[bestMove.guess1, bestMove.guess3].filter(Boolean) as number[]} label="№2" />
+            <SeatSelect value={bestMove.guess3} onChange={v => setBestMove(p => ({ ...p, guess3: v }))}
+              exclude={[bestMove.guess1, bestMove.guess2].filter(Boolean) as number[]} label="№3" />
+          </div>
+        )}
+
         <div className="flex gap-2">
           {phase === 'setup' && (
             <button onClick={startGame} disabled={saving}
@@ -266,8 +317,7 @@ export default function GameTable() {
               <th className="border border-gray-300 px-2 py-2 text-left w-32 sticky left-8 bg-gray-100 z-10">Ім&apos;я</th>
               <th className="border border-gray-300 px-1 py-2 w-16 text-center">Фоли</th>
               {Array.from({ length: 7 }, (_, i) => (
-                <th key={i} colSpan={3} className="border border-gray-300 px-1 py-2 text-center"
-                  style={{ background: DAY_BG[i] }}>
+                <th key={i} colSpan={3} className="border border-gray-300 px-1 py-2 text-center" style={{ background: DAY_BG[i] }}>
                   День {i + 1}
                 </th>
               ))}
