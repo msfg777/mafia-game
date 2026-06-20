@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { AutocompleteInput } from './AutocompleteInput';
 
 type Role = 'Мирний' | 'Шериф' | 'Маф' | 'Дон';
 type Team = 'мирні' | 'мафія';
@@ -69,57 +70,6 @@ function RoleDot({ role }: { role: Role }) {
   return (
     <div className="w-4 h-4 rounded-sm flex items-center justify-center flex-shrink-0" style={{ background: ROLE_COLOR[role] }}>
       {icon && <span style={{ fontSize: '9px' }}>{icon}</span>}
-    </div>
-  );
-}
-
-function AutocompleteInput({ value, onChange, placeholder }: {
-  value: string; onChange: (v: string) => void; placeholder: string;
-}) {
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const fetchSuggestions = async (v: string) => {
-    if (v.length < 1) { setSuggestions([]); setOpen(false); return; }
-    try {
-      const res = await fetch(`/api/players?q=${encodeURIComponent(v)}`);
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : [];
-      setSuggestions(list);
-      setOpen(list.length > 0);
-    } catch { setSuggestions([]); setOpen(false); }
-  };
-
-  return (
-    <div ref={ref} className="relative flex-1">
-      <input
-        type="text"
-        value={value}
-        onChange={e => { onChange(e.target.value); fetchSuggestions(e.target.value); }}
-        onFocus={() => { if (value.length > 0) fetchSuggestions(value); }}
-        placeholder={placeholder}
-        autoComplete="off"
-        className="w-full border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-      />
-      {open && suggestions.length > 0 && (
-        <div className="absolute left-0 top-full mt-0.5 bg-white border border-gray-200 rounded shadow-lg z-50 min-w-full">
-          {suggestions.map(s => (
-            <div key={s} className="px-2 py-1.5 text-xs hover:bg-blue-50 cursor-pointer"
-              onMouseDown={e => { e.preventDefault(); onChange(s); setOpen(false); setSuggestions([]); }}>
-              {s}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
