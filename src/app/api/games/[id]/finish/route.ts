@@ -4,15 +4,9 @@ import { sql } from '@/lib/db';
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const body = await req.json();
-    const { winner, players, days, bestMove } = body;
+    const { winner, players, bestMove } = body;
     const { id } = await params;
     const gameId = parseInt(id);
-
-    console.log('=== FINISH GAME ===');
-    console.log('gameId:', gameId);
-    console.log('winner:', winner);
-    console.log('bestMove:', JSON.stringify(bestMove));
-    console.log('players:', JSON.stringify(players.map((p: {seat: number; name: string; role: string}) => ({seat: p.seat, name: p.name, role: p.role}))));
 
     await sql`UPDATE games SET winner_team = ${winner}, finished_at = NOW() WHERE id = ${gameId}`;
 
@@ -39,32 +33,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         }
       }
 
-      const totalScore = baseScore + bestMoveBonus;
-      console.log(`Player ${player.seat} ${player.name} role=${player.role} isMafia=${isMafia} isCivilian=${isCivilian} winner=${winner} base=${baseScore} bonus=${bestMoveBonus} total=${totalScore}`);
-
       await sql`
         UPDATE game_players 
-        SET score = ${totalScore}, best_move_bonus = ${bestMoveBonus}
+        SET score = ${baseScore + bestMoveBonus}, best_move_bonus = ${bestMoveBonus}
         WHERE game_id = ${gameId} AND seat = ${player.seat}
       `;
     }
 
-    for (let di = 0; di < days[0].length; di++) {
-      for (let pi = 0; pi < days.length; pi++) {
-        const d = days[pi][di];
-        if (d.nomOrder > 0 || d.votes > 0 || d.night) {
-          await sql`
-            INSERT INTO game_days (game_id, day_number, seat, nominated, votes, killed_night)
-            VALUES (${gameId}, ${di + 1}, ${pi + 1}, ${d.nomOrder > 0}, ${d.votes}, ${d.night})
-            ON CONFLICT DO NOTHING
-          `;
-        }
-      }
-    }
-
     return NextResponse.json({ ok: true });
   } catch (e) {
-    console.error('FINISH ERROR:', e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
