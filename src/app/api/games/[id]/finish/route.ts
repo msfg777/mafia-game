@@ -3,9 +3,16 @@ import { sql } from '@/lib/db';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { winner, players, days, bestMove } = await req.json();
+    const body = await req.json();
+    const { winner, players, days, bestMove } = body;
     const { id } = await params;
     const gameId = parseInt(id);
+
+    console.log('=== FINISH GAME ===');
+    console.log('gameId:', gameId);
+    console.log('winner:', winner);
+    console.log('bestMove:', JSON.stringify(bestMove));
+    console.log('players:', JSON.stringify(players.map((p: {seat: number; name: string; role: string}) => ({seat: p.seat, name: p.name, role: p.role}))));
 
     await sql`UPDATE games SET winner_team = ${winner}, finished_at = NOW() WHERE id = ${gameId}`;
 
@@ -15,7 +22,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     for (const player of players) {
       const isMafia = mafia.includes(player.role);
       const isCivilian = civilian.includes(player.role);
-      
+
       let baseScore = 0;
       if (winner === 'мафія' && isMafia) baseScore = 1;
       if (winner === 'мирні' && isCivilian) baseScore = 1;
@@ -33,6 +40,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
 
       const totalScore = baseScore + bestMoveBonus;
+      console.log(`Player ${player.seat} ${player.name} role=${player.role} isMafia=${isMafia} isCivilian=${isCivilian} winner=${winner} base=${baseScore} bonus=${bestMoveBonus} total=${totalScore}`);
 
       await sql`
         UPDATE game_players 
@@ -56,6 +64,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     return NextResponse.json({ ok: true });
   } catch (e) {
+    console.error('FINISH ERROR:', e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
