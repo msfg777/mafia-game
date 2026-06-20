@@ -35,7 +35,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       await sql`
         UPDATE game_players 
-        SET score = ${baseScore + bestMoveBonus}, best_move_bonus = ${bestMoveBonus}
+        SET score = ${(baseScore + bestMoveBonus).toFixed(2)}::numeric,
+            best_move_bonus = ${bestMoveBonus.toFixed(2)}::numeric
         WHERE game_id = ${gameId} AND seat = ${player.seat}
       `;
     }
