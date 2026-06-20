@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #111827;
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* iPad touch targets */
+@media (pointer: coarse) {
+  input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+  input[type="number"] {
+    min-height: 28px;
+  }
+  select {
+    min-height: 28px;
+  }
+}
