@@ -60,19 +60,14 @@ function RoleDot({ role }: { role: Role }) {
   const icon = ROLE_ICON[role];
   const color = ROLE_COLOR[role];
   return (
-    <div
-      className="w-4 h-4 rounded-sm flex items-center justify-center flex-shrink-0"
-      style={{ background: color }}
-    >
+    <div className="w-4 h-4 rounded-sm flex items-center justify-center flex-shrink-0" style={{ background: color }}>
       {icon && <span style={{ fontSize: '9px' }}>{icon}</span>}
     </div>
   );
 }
 
 function AutocompleteInput({ value, onChange, placeholder }: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
+  value: string; onChange: (v: string) => void; placeholder: string;
 }) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
@@ -99,10 +94,7 @@ function AutocompleteInput({ value, onChange, placeholder }: {
 
   return (
     <div ref={ref} className="relative flex-1">
-      <input
-        type="text"
-        value={value}
-        onChange={e => handleInput(e.target.value)}
+      <input type="text" value={value} onChange={e => handleInput(e.target.value)}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
         placeholder={placeholder}
         className="w-full border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
@@ -111,9 +103,7 @@ function AutocompleteInput({ value, onChange, placeholder }: {
         <div className="absolute left-0 top-full mt-0.5 bg-white border border-gray-200 rounded shadow-lg z-30 min-w-full">
           {suggestions.map(s => (
             <div key={s} className="px-2 py-1.5 text-xs hover:bg-blue-50 cursor-pointer"
-              onMouseDown={() => { onChange(s); setOpen(false); }}>
-              {s}
-            </div>
+              onMouseDown={() => { onChange(s); setOpen(false); }}>{s}</div>
           ))}
         </div>
       )}
@@ -131,17 +121,13 @@ export default function GameTable() {
   const [msg, setMsg] = useState('');
   const [winner, setWinner] = useState<Team | null>(null);
 
-  const showMsg = (text: string) => {
-    setMsg(text);
-    setTimeout(() => setMsg(''), 3000);
-  };
+  const showMsg = (text: string) => { setMsg(text); setTimeout(() => setMsg(''), 3000); };
 
   const cycleRole = useCallback((pi: number) => {
     if (phase !== 'setup') return;
     setPlayers(prev => prev.map((p, i) => {
       if (i !== pi) return p;
-      const idx = (ROLES.indexOf(p.role) + 1) % ROLES.length;
-      return { ...p, role: ROLES[idx] };
+      return { ...p, role: ROLES[(ROLES.indexOf(p.role) + 1) % ROLES.length] };
     }));
   }, [phase]);
 
@@ -156,15 +142,11 @@ export default function GameTable() {
   }, []);
 
   const addFoul = useCallback((pi: number) => {
-    setPlayers(prev => prev.map((p, i) =>
-      i !== pi ? p : { ...p, fouls: Math.min(p.fouls + 1, 4) }
-    ));
+    setPlayers(prev => prev.map((p, i) => i !== pi ? p : { ...p, fouls: Math.min(p.fouls + 1, 4) }));
   }, []);
 
   const removeFoul = useCallback((pi: number) => {
-    setPlayers(prev => prev.map((p, i) =>
-      i !== pi ? p : { ...p, fouls: Math.max(0, p.fouls - 1) }
-    ));
+    setPlayers(prev => prev.map((p, i) => i !== pi ? p : { ...p, fouls: Math.max(0, p.fouls - 1) }));
   }, []);
 
   const toggleNom = useCallback((pi: number, di: number, checked: boolean) => {
@@ -178,9 +160,7 @@ export default function GameTable() {
         next[pi][di].nomOrder = 0;
         next[pi][di].votes = 0;
         for (let i = 0; i < 10; i++) {
-          if (next[i][di].nomOrder > removedOrder) {
-            next[i][di].nomOrder -= 1;
-          }
+          if (next[i][di].nomOrder > removedOrder) next[i][di].nomOrder -= 1;
         }
       }
       return next;
@@ -209,19 +189,13 @@ export default function GameTable() {
       const res = await fetch('/api/games', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          players: players.map((p, i) => ({
-            seat: p.seat, name: names[i], role: p.role,
-          })),
-        }),
+        body: JSON.stringify({ players: players.map((p, i) => ({ seat: p.seat, name: names[i], role: p.role })) }),
       });
       const data = await res.json();
       setGameId(data.gameId);
       setPhase('playing');
       showMsg(`Гру #${data.gameId} розпочато!`);
-    } catch {
-      showMsg('Помилка підключення до БД');
-    }
+    } catch { showMsg('Помилка підключення до БД'); }
     setSaving(false);
   };
 
@@ -238,9 +212,7 @@ export default function GameTable() {
       setPhase('finished');
       setShowModal(false);
       showMsg(`Перемогли ${winnerTeam === 'мирні' ? 'Мирні' : 'Мафія'}!`);
-    } catch {
-      showMsg('Помилка збереження');
-    }
+    } catch { showMsg('Помилка збереження'); }
     setSaving(false);
   };
 
@@ -248,8 +220,6 @@ export default function GameTable() {
     setPhase('setup'); setPlayers(initPlayers()); setDays(initDays());
     setGameId(null); setWinner(null); setMsg('');
   };
-
-  const TD_H = { height: '44px' };
 
   return (
     <div className="min-h-screen bg-white text-gray-900 text-xs">
@@ -288,152 +258,121 @@ export default function GameTable() {
         </div>
       )}
 
-      <div className="flex overflow-hidden">
-        {/* LEFT fixed */}
-        <div className="flex-shrink-0">
-          <table className="border-collapse">
-            <thead>
-              <tr className="bg-gray-100 text-gray-600">
-                <th className="border border-gray-300 px-1 py-1 w-8 text-center">#</th>
-                <th className="border border-gray-300 px-2 py-1 text-left w-32">Ім&apos;я</th>
-                <th className="border border-gray-300 px-1 py-1 w-16 text-center">Фоли</th>
-              </tr>
-              <tr className="bg-gray-50">
-                <th className="border border-gray-300" />
-                <th className="border border-gray-300" />
-                <th className="border border-gray-300" />
-              </tr>
-            </thead>
-            <tbody>
-              {players.map((p, pi) => {
-                const elim = p.fouls >= 4;
-                const rowBg = pi % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-                return (
-                  <tr key={pi} className={`${rowBg} ${elim ? 'opacity-50' : ''}`}>
-                    <td className={`border border-gray-300 text-center ${rowBg}`} style={TD_H}>
-                      <button onClick={() => cycleRole(pi)} disabled={phase !== 'setup'}
-                        className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center mx-auto ${phase === 'setup' ? 'bg-gray-200 hover:bg-blue-100 cursor-pointer border border-gray-300' : 'bg-gray-100 border border-gray-200 cursor-default'}`}>
-                        {p.seat}
-                      </button>
-                    </td>
-                    <td className={`border border-gray-300 px-1 ${rowBg}`} style={TD_H}>
-                      {phase === 'setup' ? (
-                        <div className="flex items-center gap-1.5">
-                          <RoleDot role={p.role} />
-                          <AutocompleteInput value={p.name} onChange={v => updateName(pi, v)} placeholder={`Гравець ${p.seat}`} />
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <RoleDot role={p.role} />
-                          <span className="font-medium text-gray-900">{p.name || `Гравець ${p.seat}`}</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className={`border border-gray-300 px-1 ${rowBg}`} style={TD_H}>
-                      <div className="flex items-center justify-center gap-0.5">
-                        {Array.from({ length: 4 }, (_, fi) => (
-                          <button key={fi} onClick={() => phase !== 'setup' && addFoul(pi)} disabled={phase === 'setup'}
-                            className={`w-4 h-4 rounded-sm text-xs flex items-center justify-center border ${fi < p.fouls ? (fi >= 3 ? 'bg-red-500 border-red-600 text-white' : 'bg-amber-400 border-amber-500 text-white') : 'bg-gray-100 border-gray-300'}`}>
-                            {fi < p.fouls ? '✕' : ''}
-                          </button>
-                        ))}
-                        {phase !== 'setup' && p.fouls > 0 && (
-                          <button onClick={() => removeFoul(pi)}
-                            className="w-3.5 h-3.5 rounded-sm bg-gray-200 border border-gray-300 text-gray-500 flex items-center justify-center ml-0.5">−</button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {phase === 'setup' && (
-                <tr>
-                  <td colSpan={3} className="border border-gray-300 px-2 py-1.5 bg-gray-50">
-                    <button onClick={randomizeRoles}
-                      className="flex items-center gap-1 px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-medium">
-                      🎲 C
+      <div className="overflow-x-auto">
+        <table className="border-collapse w-full" style={{ minWidth: 900 }}>
+          <thead>
+            <tr className="bg-gray-100 text-gray-600">
+              <th className="border border-gray-300 px-1 py-2 w-8 text-center sticky left-0 bg-gray-100 z-10">#</th>
+              <th className="border border-gray-300 px-2 py-2 text-left w-32 sticky left-8 bg-gray-100 z-10">Ім&apos;я</th>
+              <th className="border border-gray-300 px-1 py-2 w-16 text-center">Фоли</th>
+              {Array.from({ length: 7 }, (_, i) => (
+                <th key={i} colSpan={3} className="border border-gray-300 px-1 py-2 text-center"
+                  style={{ background: DAY_BG[i] }}>
+                  День {i + 1}
+                </th>
+              ))}
+            </tr>
+            <tr className="bg-gray-50 text-gray-500">
+              <th className="border border-gray-300 sticky left-0 bg-gray-50 z-10" />
+              <th className="border border-gray-300 sticky left-8 bg-gray-50 z-10" />
+              <th className="border border-gray-300" />
+              {Array.from({ length: 7 }, (_, i) => (
+                <>
+                  <th key={`${i}k`} className="border border-gray-300 px-1 py-1 font-normal w-10" style={{ background: DAY_BG[i] }}>Ніч</th>
+                  <th key={`${i}a`} className="border border-gray-300 px-1 py-1 font-normal w-10" style={{ background: DAY_BG[i] }}>Вист.</th>
+                  <th key={`${i}b`} className="border border-gray-300 px-1 py-1 font-normal w-11" style={{ background: DAY_BG[i] }}>Гол.</th>
+                </>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {players.map((p, pi) => {
+              const elim = p.fouls >= 4;
+              const rowBg = pi % 2 === 0 ? '#ffffff' : '#f9fafb';
+              return (
+                <tr key={pi} style={{ background: rowBg, opacity: elim ? 0.5 : 1 }}>
+                  <td className="border border-gray-300 text-center sticky left-0 z-10" style={{ background: rowBg, height: 44 }}>
+                    <button onClick={() => cycleRole(pi)} disabled={phase !== 'setup'}
+                      className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center mx-auto ${phase === 'setup' ? 'bg-gray-200 hover:bg-blue-100 cursor-pointer border border-gray-300' : 'bg-gray-100 border border-gray-200 cursor-default'}`}>
+                      {p.seat}
                     </button>
                   </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* RIGHT scrollable */}
-        <div className="overflow-x-auto flex-1">
-          <table className="border-collapse" style={{ minWidth: `${7 * 3 * 40}px` }}>
-            <thead>
-              <tr className="bg-gray-100 text-gray-600">
-                {Array.from({ length: 7 }, (_, i) => (
-                  <th key={i} colSpan={3} className="border border-gray-300 px-1 py-1 text-center"
-                    style={{ background: DAY_BG[i] }}>
-                    День {i + 1}
-                  </th>
-                ))}
-              </tr>
-              <tr className="bg-gray-50 text-gray-500">
-                {Array.from({ length: 7 }, (_, i) => (
-                  <>
-                    <th key={`${i}k`} className="border border-gray-300 px-1 py-0.5 font-normal w-10" style={{ background: DAY_BG[i] }}>Ніч</th>
-                    <th key={`${i}a`} className="border border-gray-300 px-1 py-0.5 font-normal w-10" style={{ background: DAY_BG[i] }}>Вист.</th>
-                    <th key={`${i}b`} className="border border-gray-300 px-1 py-0.5 font-normal w-11" style={{ background: DAY_BG[i] }}>Гол.</th>
-                  </>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {players.map((p, pi) => {
-                const elim = p.fouls >= 4;
-                const rowBg = pi % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-                return (
-                  <tr key={pi} className={`${rowBg} ${elim ? 'opacity-50' : ''}`}>
-                    {Array.from({ length: 7 }, (_, di) => {
-                      const d = days[pi][di];
-                      const off = phase === 'setup' || elim;
-                      const nominated = d.nomOrder > 0;
-                      return (
-                        <>
-                          <td key={`k${di}`} className="border border-gray-300 text-center" style={{ ...TD_H, background: DAY_BG[di] }}>
-                            <input type="checkbox" checked={d.night} disabled={off}
-                              onChange={e => updateDay(pi, di, 'night', e.target.checked)}
+                  <td className="border border-gray-300 px-1 sticky left-8 z-10" style={{ background: rowBg, height: 44 }}>
+                    {phase === 'setup' ? (
+                      <div className="flex items-center gap-1.5">
+                        <RoleDot role={p.role} />
+                        <AutocompleteInput value={p.name} onChange={v => updateName(pi, v)} placeholder={`Гравець ${p.seat}`} />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <RoleDot role={p.role} />
+                        <span className="font-medium text-gray-900">{p.name || `Гравець ${p.seat}`}</span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="border border-gray-300 px-1" style={{ background: rowBg, height: 44 }}>
+                    <div className="flex items-center justify-center gap-0.5">
+                      {Array.from({ length: 4 }, (_, fi) => (
+                        <button key={fi} onClick={() => phase !== 'setup' && addFoul(pi)} disabled={phase === 'setup'}
+                          className={`w-4 h-4 rounded-sm text-xs flex items-center justify-center border ${fi < p.fouls ? (fi >= 3 ? 'bg-red-500 border-red-600 text-white' : 'bg-amber-400 border-amber-500 text-white') : 'bg-gray-100 border-gray-300'}`}>
+                          {fi < p.fouls ? '✕' : ''}
+                        </button>
+                      ))}
+                      {phase !== 'setup' && p.fouls > 0 && (
+                        <button onClick={() => removeFoul(pi)}
+                          className="w-3.5 h-3.5 rounded-sm bg-gray-200 border border-gray-300 text-gray-500 flex items-center justify-center ml-0.5">−</button>
+                      )}
+                    </div>
+                  </td>
+                  {Array.from({ length: 7 }, (_, di) => {
+                    const d = days[pi][di];
+                    const off = phase === 'setup' || elim;
+                    const nominated = d.nomOrder > 0;
+                    return (
+                      <>
+                        <td key={`k${di}`} className="border border-gray-300 text-center" style={{ background: DAY_BG[di], height: 44 }}>
+                          <input type="checkbox" checked={d.night} disabled={off}
+                            onChange={e => updateDay(pi, di, 'night', e.target.checked)}
+                            className="w-4 h-4 disabled:opacity-30" />
+                        </td>
+                        <td key={`n${di}`} className="border border-gray-300 text-center" style={{ background: DAY_BG[di], height: 44 }}>
+                          <div className="flex flex-col items-center justify-center gap-0.5">
+                            <input type="checkbox" checked={nominated} disabled={off}
+                              onChange={e => toggleNom(pi, di, e.target.checked)}
                               className="w-4 h-4 disabled:opacity-30" />
-                          </td>
-                          <td key={`n${di}`} className="border border-gray-300 text-center" style={{ ...TD_H, background: DAY_BG[di] }}>
-                            <div className="flex flex-col items-center justify-center gap-0.5">
-                              <input type="checkbox" checked={nominated} disabled={off}
-                                onChange={e => toggleNom(pi, di, e.target.checked)}
-                                className="w-4 h-4 disabled:opacity-30" />
-                              {nominated && (
-                                <span className="text-indigo-600 font-bold leading-none" style={{ fontSize: '9px' }}>{d.nomOrder}</span>
-                              )}
-                            </div>
-                          </td>
-                          <td key={`v${di}`} className="border border-gray-300 text-center" style={{ ...TD_H, background: DAY_BG[di] }}>
-                            <select
-                              value={d.votes || ''}
-                              disabled={off || !nominated}
-                              onChange={e => updateDay(pi, di, 'votes', parseInt(e.target.value) || 0)}
-                              className="w-10 text-center text-xs border border-gray-200 rounded bg-white disabled:opacity-20 focus:outline-none"
-                            >
-                              <option value="">—</option>
-                              {Array.from({ length: 10 }, (_, n) => (
-                                <option key={n + 1} value={n + 1}>{n + 1}</option>
-                              ))}
-                            </select>
-                          </td>
-                        </>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-              {phase === 'setup' && (
-                <tr><td colSpan={21} className="border border-gray-300 bg-gray-50 py-1" /></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                            {nominated && (
+                              <span className="text-indigo-600 font-bold leading-none" style={{ fontSize: '9px' }}>{d.nomOrder}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td key={`v${di}`} className="border border-gray-300 text-center" style={{ background: DAY_BG[di], height: 44 }}>
+                          <select value={d.votes || ''} disabled={off || !nominated}
+                            onChange={e => updateDay(pi, di, 'votes', parseInt(e.target.value) || 0)}
+                            className="w-10 text-center text-xs border border-gray-200 rounded bg-white disabled:opacity-20 focus:outline-none">
+                            <option value="">—</option>
+                            {Array.from({ length: 10 }, (_, n) => (
+                              <option key={n + 1} value={n + 1}>{n + 1}</option>
+                            ))}
+                          </select>
+                        </td>
+                      </>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+            {phase === 'setup' && (
+              <tr>
+                <td colSpan={3 + 7 * 3} className="border border-gray-300 px-2 py-1.5 bg-gray-50">
+                  <button onClick={randomizeRoles}
+                    className="flex items-center gap-1 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-medium">
+                    🎲 C — випадкові ролі
+                  </button>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       {phase === 'setup' && (
