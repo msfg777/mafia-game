@@ -19,11 +19,14 @@ interface DayData {
 }
 
 const ROLES: Role[] = ['Мирний', 'Маф', 'Дон', 'Шериф'];
-const ROLE_TEAM: Record<Role, Team> = {
-  'Мирний': 'мирні', 'Шериф': 'мирні', 'Маф': 'мафія', 'Дон': 'мафія',
-};
 const ROLE_ICON: Record<Role, string> = {
   'Мирний': '', 'Маф': '', 'Дон': '🎩', 'Шериф': '⭐',
+};
+const ROLE_COLOR: Record<Role, string> = {
+  'Мирний': '#dc2626', 'Маф': '#111827', 'Дон': '#111827', 'Шериф': '#dc2626',
+};
+const ROLE_TEAM: Record<Role, Team> = {
+  'Мирний': 'мирні', 'Шериф': 'мирні', 'Маф': 'мафія', 'Дон': 'мафія',
 };
 
 const DAY_BG = [
@@ -53,15 +56,23 @@ function initDays(): DayData[][] {
   );
 }
 
+function RoleDot({ role }: { role: Role }) {
+  const icon = ROLE_ICON[role];
+  const color = ROLE_COLOR[role];
+  return (
+    <div
+      className="w-4 h-4 rounded-sm flex items-center justify-center flex-shrink-0"
+      style={{ background: color }}
+    >
+      {icon && <span style={{ fontSize: '9px' }}>{icon}</span>}
+    </div>
+  );
+}
+
 function NameStyle({ name, role }: { name: string; role: Role }) {
   const icon = ROLE_ICON[role];
-  let cls = 'font-bold text-sm ';
-  if (role === 'Мирний') cls += 'text-red-600';
-  else if (role === 'Маф') cls += 'text-gray-900';
-  else if (role === 'Дон') cls += 'text-gray-900';
-  else if (role === 'Шериф') cls += 'text-red-600';
   return (
-    <span className={cls}>
+    <span className="font-bold text-sm" style={{ color: ROLE_COLOR[role] }}>
       {name}{icon && <span className="ml-0.5 text-xs">{icon}</span>}
     </span>
   );
@@ -169,6 +180,9 @@ export default function GameTable() {
     setDays(prev => {
       const next = prev.map(r => [...r]);
       next[pi][di] = { ...next[pi][di], [field]: val };
+      if (field === 'nom' && !val) {
+        next[pi][di].votes = 0;
+      }
       return next;
     });
   }, []);
@@ -285,9 +299,9 @@ export default function GameTable() {
               <th className="border border-gray-300" />
               {Array.from({ length: 7 }, (_, i) => (
                 <>
+                  <th key={`${i}k`} className="border border-gray-300 px-1 py-0.5 font-normal bg-gray-100">Ніч</th>
                   <th key={`${i}a`} className="border border-gray-300 px-1 py-0.5 font-normal" style={{ background: DAY_BG[i] }}>Вист.</th>
                   <th key={`${i}b`} className="border border-gray-300 px-1 py-0.5 font-normal" style={{ background: DAY_BG[i] }}>Гол.</th>
-                  <th key={`${i}c`} className="border border-gray-300 px-1 py-0.5 font-normal bg-gray-100">Ніч</th>
                 </>
               ))}
             </tr>
@@ -311,19 +325,17 @@ export default function GameTable() {
                   </td>
                   <td className={`sticky left-7 z-10 border border-gray-300 px-1 ${rowBg}`}>
                     {phase === 'setup' ? (
-  <div className="flex flex-col gap-0.5">
-    <AutocompleteInput
-      value={p.name}
-      onChange={v => updateName(pi, v)}
-      placeholder={`Гравець ${p.seat}`}
-    />
-    {p.name && (
-      <NameStyle name={p.name} role={p.role} />
-    )}
-  </div>
-) : (
-  <NameStyle name={p.name || `Гравець ${p.seat}`} role={p.role} />
-)}
+                      <div className="flex items-center gap-1.5">
+                        <RoleDot role={p.role} />
+                        <AutocompleteInput
+                          value={p.name}
+                          onChange={v => updateName(pi, v)}
+                          placeholder={`Гравець ${p.seat}`}
+                        />
+                      </div>
+                    ) : (
+                      <NameStyle name={p.name || `Гравець ${p.seat}`} role={p.role} />
+                    )}
                   </td>
                   <td className={`border border-gray-300 px-1 py-0.5 ${rowBg}`}>
                     <div className="flex items-center justify-center gap-0.5">
@@ -349,21 +361,28 @@ export default function GameTable() {
                     const off = phase === 'setup' || elim;
                     return (
                       <>
+                        <td key={`k${di}`} className="border border-gray-300 text-center bg-gray-100">
+                          <input type="checkbox" checked={d.night} disabled={off}
+                            onChange={e => updateDay(pi, di, 'night', e.target.checked)}
+                            className="w-3.5 h-3.5 disabled:opacity-30" />
+                        </td>
                         <td key={`n${di}`} className="border border-gray-300 text-center" style={{ background: DAY_BG[di] }}>
                           <input type="checkbox" checked={d.nom} disabled={off}
                             onChange={e => updateDay(pi, di, 'nom', e.target.checked)}
                             className="w-3.5 h-3.5 disabled:opacity-30" />
                         </td>
                         <td key={`v${di}`} className="border border-gray-300 text-center" style={{ background: DAY_BG[di] }}>
-                          <input type="number" min={0} max={10} value={d.votes || ''} disabled={off}
+                          <select
+                            value={d.votes || ''}
+                            disabled={off || !d.nom}
                             onChange={e => updateDay(pi, di, 'votes', parseInt(e.target.value) || 0)}
-                            placeholder="—"
-                            className="w-7 text-center text-xs border border-gray-200 rounded bg-white disabled:opacity-30 focus:outline-none" />
-                        </td>
-                        <td key={`k${di}`} className="border border-gray-300 text-center bg-gray-100">
-                          <input type="checkbox" checked={d.night} disabled={off}
-                            onChange={e => updateDay(pi, di, 'night', e.target.checked)}
-                            className="w-3.5 h-3.5 disabled:opacity-30" />
+                            className="w-10 text-center text-xs border border-gray-200 rounded bg-white disabled:opacity-20 focus:outline-none"
+                          >
+                            <option value="">—</option>
+                            {Array.from({ length: 10 }, (_, n) => (
+                              <option key={n + 1} value={n + 1}>{n + 1}</option>
+                            ))}
+                          </select>
                         </td>
                       </>
                     );
@@ -386,12 +405,12 @@ export default function GameTable() {
       </div>
 
       {phase === 'setup' && (
-        <div className="flex gap-4 px-3 py-2 text-xs text-gray-500 flex-wrap border-t border-gray-100">
+        <div className="flex gap-4 px-3 py-2 text-xs text-gray-500 flex-wrap border-t border-gray-100 items-center">
           <span>Натисни # щоб змінити роль:</span>
-          <span className="font-bold text-red-600">Мирний</span>
-          <span className="font-bold text-gray-900">Маф</span>
-          <span className="font-bold text-gray-900">Дон 🎩</span>
-          <span className="font-bold text-red-600">Шериф ⭐</span>
+          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-red-600"/><span className="font-bold text-red-600">Мирний</span></div>
+          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-gray-900"/><span className="font-bold text-gray-900">Маф</span></div>
+          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-gray-900"/><span className="font-bold text-gray-900">Дон 🎩</span></div>
+          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-red-600"/><span className="font-bold text-red-600">Шериф ⭐</span></div>
         </div>
       )}
 
