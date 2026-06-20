@@ -13,7 +13,7 @@ interface Player {
 }
 
 interface DayData {
-  nom: boolean;
+  nomOrder: number;
   votes: number;
   night: boolean;
 }
@@ -30,9 +30,9 @@ const ROLE_TEAM: Record<Role, Team> = {
 };
 
 const DAY_BG = [
-  'rgba(250,204,21,0.08)', 'rgba(251,146,60,0.08)', 'rgba(163,230,53,0.08)',
-  'rgba(34,211,238,0.08)', 'rgba(167,139,250,0.08)', 'rgba(249,168,212,0.08)',
-  'rgba(74,222,128,0.08)',
+  'rgba(250,204,21,0.10)', 'rgba(251,146,60,0.10)', 'rgba(163,230,53,0.10)',
+  'rgba(34,211,238,0.10)', 'rgba(167,139,250,0.10)', 'rgba(249,168,212,0.10)',
+  'rgba(74,222,128,0.10)',
 ];
 
 function randomRoles(): Role[] {
@@ -52,7 +52,7 @@ function initPlayers(): Player[] {
 
 function initDays(): DayData[][] {
   return Array.from({ length: 10 }, () =>
-    Array.from({ length: 7 }, () => ({ nom: false, votes: 0, night: false }))
+    Array.from({ length: 7 }, () => ({ nomOrder: 0, votes: 0, night: false }))
   );
 }
 
@@ -66,15 +66,6 @@ function RoleDot({ role }: { role: Role }) {
     >
       {icon && <span style={{ fontSize: '9px' }}>{icon}</span>}
     </div>
-  );
-}
-
-function NameStyle({ name, role }: { name: string; role: Role }) {
-  const icon = ROLE_ICON[role];
-  return (
-    <span className="font-bold text-sm" style={{ color: ROLE_COLOR[role] }}>
-      {name}{icon && <span className="ml-0.5 text-xs">{icon}</span>}
-    </span>
   );
 }
 
@@ -107,19 +98,19 @@ function AutocompleteInput({ value, onChange, placeholder }: {
   };
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative flex-1">
       <input
         type="text"
         value={value}
         onChange={e => handleInput(e.target.value)}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
         placeholder={placeholder}
-        className="w-full border border-gray-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+        className="w-full border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
       />
       {open && (
         <div className="absolute left-0 top-full mt-0.5 bg-white border border-gray-200 rounded shadow-lg z-30 min-w-full">
           {suggestions.map(s => (
-            <div key={s} className="px-2 py-1 text-xs hover:bg-blue-50 cursor-pointer"
+            <div key={s} className="px-2 py-1.5 text-xs hover:bg-blue-50 cursor-pointer"
               onMouseDown={() => { onChange(s); setOpen(false); }}>
               {s}
             </div>
@@ -176,13 +167,31 @@ export default function GameTable() {
     ));
   }, []);
 
-  const updateDay = useCallback((pi: number, di: number, field: keyof DayData, val: boolean | number) => {
+  const toggleNom = useCallback((pi: number, di: number, checked: boolean) => {
     setDays(prev => {
-      const next = prev.map(r => [...r]);
-      next[pi][di] = { ...next[pi][di], [field]: val };
-      if (field === 'nom' && !val) {
+      const next = prev.map(r => r.map(d => ({ ...d })));
+      if (checked) {
+        const maxOrder = Math.max(0, ...next.map(r => r[di].nomOrder));
+        next[pi][di].nomOrder = maxOrder + 1;
+      } else {
+        const removedOrder = next[pi][di].nomOrder;
+        next[pi][di].nomOrder = 0;
         next[pi][di].votes = 0;
+        for (let i = 0; i < 10; i++) {
+          if (next[i][di].nomOrder > removedOrder) {
+            next[i][di].nomOrder -= 1;
+          }
+        }
       }
+      return next;
+    });
+  }, []);
+
+  const updateDay = useCallback((pi: number, di: number, field: 'votes' | 'night', val: boolean | number) => {
+    setDays(prev => {
+      const next = prev.map(r => r.map(d => ({ ...d })));
+      if (field === 'votes') next[pi][di].votes = val as number;
+      if (field === 'night') next[pi][di].night = val as boolean;
       return next;
     });
   }, []);
@@ -240,6 +249,8 @@ export default function GameTable() {
     setGameId(null); setWinner(null); setMsg('');
   };
 
+  const ROW_H = 'h-10';
+
   return (
     <div className="min-h-screen bg-white text-gray-900 text-xs">
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gray-50 sticky top-0 z-20">
@@ -270,147 +281,168 @@ export default function GameTable() {
         </div>
       </div>
 
-      {msg && (
-        <div className="bg-blue-50 text-blue-800 text-center py-1.5 text-xs border-b border-blue-100">{msg}</div>
-      )}
+      {msg && <div className="bg-blue-50 text-blue-800 text-center py-1.5 text-xs border-b border-blue-100">{msg}</div>}
       {winner && (
         <div className={`text-center py-2 text-sm font-semibold ${winner === 'мирні' ? 'bg-blue-700 text-white' : 'bg-red-800 text-white'}`}>
           {winner === 'мирні' ? '🏙️ Перемогли Мирні!' : '🔫 Перемогла Мафія!'}
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="border-collapse w-full" style={{ minWidth: 900 }}>
-          <thead>
-            <tr className="bg-gray-100 text-gray-600">
-              <th className="sticky left-0 bg-gray-100 z-10 border border-gray-300 px-1 py-1 w-7">#</th>
-              <th className="sticky left-7 bg-gray-100 z-10 border border-gray-300 px-2 py-1 text-left w-28">Ім&apos;я</th>
-              <th className="border border-gray-300 px-1 py-1 w-14">Фоли</th>
-              {Array.from({ length: 7 }, (_, i) => (
-                <th key={i} colSpan={3} className="border border-gray-300 px-1 py-1 text-center"
-                  style={{ background: DAY_BG[i] }}>
-                  День {i + 1}
-                </th>
-              ))}
-            </tr>
-            <tr className="bg-gray-50 text-gray-500">
-              <th className="sticky left-0 bg-gray-50 z-10 border border-gray-300" />
-              <th className="sticky left-7 bg-gray-50 z-10 border border-gray-300" />
-              <th className="border border-gray-300" />
-              {Array.from({ length: 7 }, (_, i) => (
-                <>
-                  <th key={`${i}k`} className="border border-gray-300 px-1 py-0.5 font-normal bg-gray-100">Ніч</th>
-                  <th key={`${i}a`} className="border border-gray-300 px-1 py-0.5 font-normal" style={{ background: DAY_BG[i] }}>Вист.</th>
-                  <th key={`${i}b`} className="border border-gray-300 px-1 py-0.5 font-normal" style={{ background: DAY_BG[i] }}>Гол.</th>
-                </>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {players.map((p, pi) => {
-              const elim = p.fouls >= 4;
-              const rowBg = pi % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-              return (
-                <tr key={pi} className={`${rowBg} ${elim ? 'opacity-50' : ''}`}>
-                  <td className={`sticky left-0 z-10 border border-gray-300 text-center ${rowBg}`}>
-                    <button onClick={() => cycleRole(pi)} disabled={phase !== 'setup'}
-                      title="Натисни щоб змінити роль"
-                      className={`w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center mx-auto transition-colors ${
-                        phase === 'setup'
-                          ? 'bg-gray-200 hover:bg-blue-100 cursor-pointer border border-gray-300'
-                          : 'bg-gray-100 border border-gray-200 cursor-default'
-                      }`}>
-                      {p.seat}
+      <div className="flex overflow-hidden">
+        {/* LEFT fixed */}
+        <div className="flex-shrink-0">
+          <table className="border-collapse">
+            <thead>
+              <tr className="bg-gray-100 text-gray-600">
+                <th className="border border-gray-300 px-1 py-1 w-8 text-center">#</th>
+                <th className="border border-gray-300 px-2 py-1 text-left w-32">Ім&apos;я</th>
+                <th className="border border-gray-300 px-1 py-1 w-16 text-center">Фоли</th>
+              </tr>
+              <tr className="bg-gray-50">
+                <th className="border border-gray-300" />
+                <th className="border border-gray-300" />
+                <th className="border border-gray-300" />
+              </tr>
+            </thead>
+            <tbody>
+              {players.map((p, pi) => {
+                const elim = p.fouls >= 4;
+                const rowBg = pi % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                return (
+                  <tr key={pi} className={`${rowBg} ${elim ? 'opacity-50' : ''}`}>
+                    <td className={`border border-gray-300 text-center ${rowBg}`}>
+                      <button onClick={() => cycleRole(pi)} disabled={phase !== 'setup'}
+                        className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center mx-auto ${phase === 'setup' ? 'bg-gray-200 hover:bg-blue-100 cursor-pointer border border-gray-300' : 'bg-gray-100 border border-gray-200 cursor-default'}`}>
+                        {p.seat}
+                      </button>
+                    </td>
+                    <td className={`border border-gray-300 px-1 ${rowBg} ${ROW_H}`}>
+                      {phase === 'setup' ? (
+                        <div className="flex items-center gap-1.5">
+                          <RoleDot role={p.role} />
+                          <AutocompleteInput value={p.name} onChange={v => updateName(pi, v)} placeholder={`Гравець ${p.seat}`} />
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <RoleDot role={p.role} />
+                          <span className="font-medium text-gray-900">{p.name || `Гравець ${p.seat}`}</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className={`border border-gray-300 px-1 ${rowBg}`}>
+                      <div className="flex items-center justify-center gap-0.5">
+                        {Array.from({ length: 4 }, (_, fi) => (
+                          <button key={fi} onClick={() => phase !== 'setup' && addFoul(pi)} disabled={phase === 'setup'}
+                            className={`w-4 h-4 rounded-sm text-xs flex items-center justify-center border ${fi < p.fouls ? (fi >= 3 ? 'bg-red-500 border-red-600 text-white' : 'bg-amber-400 border-amber-500 text-white') : 'bg-gray-100 border-gray-300'}`}>
+                            {fi < p.fouls ? '✕' : ''}
+                          </button>
+                        ))}
+                        {phase !== 'setup' && p.fouls > 0 && (
+                          <button onClick={() => removeFoul(pi)}
+                            className="w-3.5 h-3.5 rounded-sm bg-gray-200 border border-gray-300 text-gray-500 flex items-center justify-center ml-0.5">−</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {phase === 'setup' && (
+                <tr>
+                  <td colSpan={3} className="border border-gray-300 px-2 py-1.5 bg-gray-50">
+                    <button onClick={randomizeRoles}
+                      className="flex items-center gap-1 px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-medium">
+                      🎲 C
                     </button>
                   </td>
-                  <td className={`sticky left-7 z-10 border border-gray-300 px-1 ${rowBg}`}>
-                    {phase === 'setup' ? (
-                      <div className="flex items-center gap-1.5">
-                        <RoleDot role={p.role} />
-                        <AutocompleteInput
-                          value={p.name}
-                          onChange={v => updateName(pi, v)}
-                          placeholder={`Гравець ${p.seat}`}
-                        />
-                      </div>
-                    ) : (
-                      <NameStyle name={p.name || `Гравець ${p.seat}`} role={p.role} />
-                    )}
-                  </td>
-                  <td className={`border border-gray-300 px-1 py-0.5 ${rowBg}`}>
-                    <div className="flex items-center justify-center gap-0.5">
-                      {Array.from({ length: 4 }, (_, fi) => (
-                        <button key={fi} onClick={() => phase !== 'setup' && addFoul(pi)}
-                          disabled={phase === 'setup'}
-                          className={`w-4 h-4 rounded-sm text-xs flex items-center justify-center border ${
-                            fi < p.fouls
-                              ? fi >= 3 ? 'bg-red-500 border-red-600 text-white' : 'bg-amber-400 border-amber-500 text-white'
-                              : 'bg-gray-100 border-gray-300'
-                          }`}>
-                          {fi < p.fouls ? '✕' : ''}
-                        </button>
-                      ))}
-                      {phase !== 'setup' && p.fouls > 0 && (
-                        <button onClick={() => removeFoul(pi)}
-                          className="w-3.5 h-3.5 rounded-sm bg-gray-200 border border-gray-300 text-gray-500 flex items-center justify-center ml-0.5">−</button>
-                      )}
-                    </div>
-                  </td>
-                  {Array.from({ length: 7 }, (_, di) => {
-                    const d = days[pi][di];
-                    const off = phase === 'setup' || elim;
-                    return (
-                      <>
-                        <td key={`k${di}`} className="border border-gray-300 text-center bg-gray-100">
-                          <input type="checkbox" checked={d.night} disabled={off}
-                            onChange={e => updateDay(pi, di, 'night', e.target.checked)}
-                            className="w-3.5 h-3.5 disabled:opacity-30" />
-                        </td>
-                        <td key={`n${di}`} className="border border-gray-300 text-center" style={{ background: DAY_BG[di] }}>
-                          <input type="checkbox" checked={d.nom} disabled={off}
-                            onChange={e => updateDay(pi, di, 'nom', e.target.checked)}
-                            className="w-3.5 h-3.5 disabled:opacity-30" />
-                        </td>
-                        <td key={`v${di}`} className="border border-gray-300 text-center" style={{ background: DAY_BG[di] }}>
-                          <select
-                            value={d.votes || ''}
-                            disabled={off || !d.nom}
-                            onChange={e => updateDay(pi, di, 'votes', parseInt(e.target.value) || 0)}
-                            className="w-10 text-center text-xs border border-gray-200 rounded bg-white disabled:opacity-20 focus:outline-none"
-                          >
-                            <option value="">—</option>
-                            {Array.from({ length: 10 }, (_, n) => (
-                              <option key={n + 1} value={n + 1}>{n + 1}</option>
-                            ))}
-                          </select>
-                        </td>
-                      </>
-                    );
-                  })}
                 </tr>
-              );
-            })}
-            {phase === 'setup' && (
-              <tr>
-                <td colSpan={3 + 7 * 3} className="border border-gray-300 px-2 py-1.5 bg-gray-50">
-                  <button onClick={randomizeRoles}
-                    className="flex items-center gap-2 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-medium transition-colors">
-                    <span className="text-sm">🎲</span> C — випадкові ролі
-                  </button>
-                </td>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* RIGHT scrollable */}
+        <div className="overflow-x-auto flex-1">
+          <table className="border-collapse" style={{ minWidth: `${7 * 3 * 40}px` }}>
+            <thead>
+              <tr className="bg-gray-100 text-gray-600">
+                {Array.from({ length: 7 }, (_, i) => (
+                  <th key={i} colSpan={3} className="border border-gray-300 px-1 py-1 text-center"
+                    style={{ background: DAY_BG[i] }}>
+                    День {i + 1}
+                  </th>
+                ))}
               </tr>
-            )}
-          </tbody>
-        </table>
+              <tr className="bg-gray-50 text-gray-500">
+                {Array.from({ length: 7 }, (_, i) => (
+                  <>
+                    <th key={`${i}k`} className="border border-gray-300 px-1 py-0.5 font-normal w-10" style={{ background: DAY_BG[i] }}>Ніч</th>
+                    <th key={`${i}a`} className="border border-gray-300 px-1 py-0.5 font-normal w-10" style={{ background: DAY_BG[i] }}>Вист.</th>
+                    <th key={`${i}b`} className="border border-gray-300 px-1 py-0.5 font-normal w-11" style={{ background: DAY_BG[i] }}>Гол.</th>
+                  </>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {players.map((p, pi) => {
+                const elim = p.fouls >= 4;
+                const rowBg = pi % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                return (
+                  <tr key={pi} className={`${rowBg} ${elim ? 'opacity-50' : ''}`}>
+                    {Array.from({ length: 7 }, (_, di) => {
+                      const d = days[pi][di];
+                      const off = phase === 'setup' || elim;
+                      const nominated = d.nomOrder > 0;
+                      return (
+                        <>
+                          <td key={`k${di}`} className={`border border-gray-300 text-center ${ROW_H}`} style={{ background: DAY_BG[di] }}>
+                            <input type="checkbox" checked={d.night} disabled={off}
+                              onChange={e => updateDay(pi, di, 'night', e.target.checked)}
+                              className="w-4 h-4 disabled:opacity-30" />
+                          </td>
+                          <td key={`n${di}`} className={`border border-gray-300 text-center ${ROW_H}`} style={{ background: DAY_BG[di] }}>
+                            <div className="flex flex-col items-center justify-center gap-0.5">
+                              <input type="checkbox" checked={nominated} disabled={off}
+                                onChange={e => toggleNom(pi, di, e.target.checked)}
+                                className="w-4 h-4 disabled:opacity-30" />
+                              {nominated && (
+                                <span className="text-indigo-600 font-bold leading-none" style={{ fontSize: '9px' }}>{d.nomOrder}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td key={`v${di}`} className={`border border-gray-300 text-center ${ROW_H}`} style={{ background: DAY_BG[di] }}>
+                            <select
+                              value={d.votes || ''}
+                              disabled={off || !nominated}
+                              onChange={e => updateDay(pi, di, 'votes', parseInt(e.target.value) || 0)}
+                              className="w-10 text-center text-xs border border-gray-200 rounded bg-white disabled:opacity-20 focus:outline-none"
+                            >
+                              <option value="">—</option>
+                              {Array.from({ length: 10 }, (_, n) => (
+                                <option key={n + 1} value={n + 1}>{n + 1}</option>
+                              ))}
+                            </select>
+                          </td>
+                        </>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+              {phase === 'setup' && (
+                <tr><td colSpan={21} className="border border-gray-300 bg-gray-50 py-1" /></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {phase === 'setup' && (
         <div className="flex gap-4 px-3 py-2 text-xs text-gray-500 flex-wrap border-t border-gray-100 items-center">
           <span>Натисни # щоб змінити роль:</span>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-red-600"/><span className="font-bold text-red-600">Мирний</span></div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-gray-900"/><span className="font-bold text-gray-900">Маф</span></div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-gray-900"/><span className="font-bold text-gray-900">Дон 🎩</span></div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-red-600"/><span className="font-bold text-red-600">Шериф ⭐</span></div>
+          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-red-600" /><span>Мирний</span></div>
+          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-gray-900" /><span>Маф</span></div>
+          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-gray-900" /><span>Дон 🎩</span></div>
+          <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-red-600" /><span>Шериф ⭐</span></div>
         </div>
       )}
 
