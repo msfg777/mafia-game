@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 
-type Role = 'Мирний' | 'Шериф' | 'Маф' | 'Дон';
-const ROLE_TEAM: Record<Role, string> = {
-  'Мирний': 'мирні', 'Шериф': 'мирні', 'Маф': 'мафія', 'Дон': 'мафія',
-};
-
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { winner, players, days, bestMove } = await req.json();
@@ -14,24 +9,34 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     await sql`UPDATE games SET winner_team = ${winner}, finished_at = NOW() WHERE id = ${gameId}`;
 
+    const mafia = ['Маф', 'Дон'];
+    const civilian = ['Мирний', 'Шериф'];
+
     for (const player of players) {
-      const team = ROLE_TEAM[player.role as Role];
-      const baseScore = team === winner ? 1 : 0;
+      const isMafia = mafia.includes(player.role);
+      const isCivilian = civilian.includes(player.role);
+      
+      let baseScore = 0;
+      if (winner === 'мафія' && isMafia) baseScore = 1;
+      if (winner === 'мирні' && isCivilian) baseScore = 1;
 
       let bestMoveBonus = 0;
       if (bestMove && bestMove.playerSeat === player.seat) {
         const guesses: number[] = [bestMove.guess1, bestMove.guess2, bestMove.guess3].filter(Boolean);
         if (guesses.length === 3) {
-          const allMafia = guesses.every(seat => {
-            const guessedPlayer = players.find((p: { seat: number }) => p.seat === seat);
-            return guessedPlayer && (guessedPlayer.role === 'Маф' || guessedPlayer.role === 'Дон');
+          const allMafia = guesses.every((seat: number) => {
+            const g = players.find((p: { seat: number; role: string }) => p.seat === seat);
+            return g && mafia.includes(g.role);
           });
           if (allMafia) bestMoveBonus = 0.4;
         }
       }
 
+      const totalScore = baseScore + bestMoveBonus;
+
       await sql`
-        UPDATE game_players SET score = ${baseScore + bestMoveBonus}, best_move_bonus = ${bestMoveBonus}
+        UPDATE game_players 
+        SET score = ${totalScore}, best_move_bonus = ${bestMoveBonus}
         WHERE game_id = ${gameId} AND seat = ${player.seat}
       `;
     }
