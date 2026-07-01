@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { AutocompleteInput } from './AutocompleteInput';
 
 type Role = 'Мирний' | 'Шериф' | 'Маф' | 'Дон';
@@ -53,6 +53,78 @@ function SeatSelect({ value, onChange, label, main }: { value: number | null; on
         <option value="">—</option>
         {Array.from({ length: 10 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}
       </select>
+    </div>
+  );
+}
+
+function Stopwatch() {
+  const [seconds, setSeconds] = useState(0);
+  const [running, setRunning] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (running) {
+      intervalRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [running]);
+
+  const handleStartReset = () => {
+    if (!running && seconds === 0) {
+      setRunning(true);
+    } else {
+      setRunning(false);
+      setSeconds(0);
+    }
+  };
+
+  const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const secs = (seconds % 60).toString().padStart(2, '0');
+  const over = seconds >= 60;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ fontFamily: 'monospace', fontSize: 18, fontWeight: 700, minWidth: 58, color: over ? '#dc2626' : '#111827', letterSpacing: 1 }}>{mins}:{secs}</span>
+      <button onClick={() => setRunning(false)} disabled={!running} style={{ width: 32, height: 32, borderRadius: '50%', border: '0.5px solid #e5e7eb', background: running ? '#f3f4f6' : '#f9fafb', cursor: running ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: running ? '#374151' : '#d1d5db' }}>⏸</button>
+      <button onClick={handleStartReset} style={{ width: 32, height: 32, borderRadius: '50%', border: '0.5px solid', borderColor: running ? '#fca5a5' : seconds > 0 ? '#fca5a5' : '#86efac', background: running ? '#fee2e2' : seconds > 0 ? '#fee2e2' : '#dcfce7', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: running ? '#dc2626' : seconds > 0 ? '#dc2626' : '#15803d' }}>{running || seconds > 0 ? '↺' : '▶'}</button>
+    </div>
+  );
+}
+
+function AudioButtons() {
+  const [playing, setPlaying] = useState<number | null>(null);
+  const audioRefs = useRef<(HTMLAudioElement | null)[]>([null, null, null]);
+
+  const toggle = (idx: number) => {
+    const audio = audioRefs.current[idx];
+    if (!audio) return;
+    if (playing === idx) {
+      audio.pause();
+      audio.currentTime = 0;
+      setPlaying(null);
+    } else {
+      if (playing !== null && audioRefs.current[playing]) {
+        audioRefs.current[playing]!.pause();
+        audioRefs.current[playing]!.currentTime = 0;
+      }
+      audio.play();
+      setPlaying(idx);
+    }
+  };
+
+  const colors = ['#4f46e5', '#0891b2', '#7c3aed'];
+  const bgColors = ['#ede9fe', '#cffafe', '#f3e8ff'];
+
+  return (
+    <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+      {[0, 1, 2].map(i => (
+        <button key={i} onClick={() => toggle(i)} style={{ width: 28, height: 28, borderRadius: '50%', border: `0.5px solid ${playing === i ? colors[i] : '#e5e7eb'}`, background: playing === i ? bgColors[i] : '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: playing === i ? colors[i] : '#9ca3af' }}>
+          {playing === i ? '■' : '♪'}
+          <audio ref={el => { audioRefs.current[i] = el; }} src={`/${i + 1}.mp3`} onEnded={() => setPlaying(null)} />
+        </button>
+      ))}
     </div>
   );
 }
@@ -183,32 +255,27 @@ export default function GameTable() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'white', fontSize: 13, color: '#111' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '0.5px solid #e5e7eb', background: '#f9fafb', position: 'sticky', top: 0, zIndex: 20, gap: 8, flexWrap: 'wrap' as const }}>
+      {/* Header */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', padding: '8px 12px', borderBottom: '0.5px solid #e5e7eb', background: '#f9fafb', position: 'sticky', top: 0, zIndex: 20, gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 18 }}>🎭</span>
           <span style={{ fontWeight: 600, fontSize: 14 }}>Мафія</span>
           {gameId && <span style={{ color: '#9ca3af', fontSize: 12 }}>Гра #{gameId}</span>}
           <span style={{ color: '#9ca3af', fontSize: 12 }}>{dateStr} {timeStr}</span>
+          <AudioButtons />
         </div>
-        {phase === 'playing' && (
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, border: '0.5px solid #e5e7eb', borderRadius: 8, padding: '5px 10px', background: 'white' }}>
-            <span style={{ fontSize: 10, color: '#9ca3af', letterSpacing: 1, textTransform: 'uppercase' as const, marginBottom: 6 }}>🏆 кращий хід</span>
-            <SeatSelect value={bm.p} onChange={v => setBm(b => ({ ...b, p: v }))} label="хто" main />
-            <span style={{ color: '#9ca3af', fontSize: 13, marginBottom: 5 }}>→</span>
-            <SeatSelect value={bm.g1} onChange={v => setBm(b => ({ ...b, g1: v }))} label="№1" />
-            <SeatSelect value={bm.g2} onChange={v => setBm(b => ({ ...b, g2: v }))} label="№2" />
-            <SeatSelect value={bm.g3} onChange={v => setBm(b => ({ ...b, g3: v }))} label="№3" />
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 8 }}>
-          {phase === 'setup' && <button onClick={startGame} disabled={saving} style={{ padding: '6px 14px', border: '0.5px solid #d1d5db', borderRadius: 6, background: '#15803d', color: 'white', fontSize: 13, cursor: 'pointer' }}>{saving ? 'Збереження...' : '▶ Розпочати гру'}</button>}
-          {phase === 'playing' && <button onClick={() => setShowModal(true)} style={{ padding: '6px 14px', border: '0.5px solid #fca5a5', borderRadius: 6, background: '#fee2e2', color: '#dc2626', fontSize: 13, cursor: 'pointer' }}>🏁 Кінець гри</button>}
-          {phase === 'finished' && <button onClick={resetGame} style={{ padding: '6px 14px', border: '0.5px solid #bfdbfe', borderRadius: 6, background: '#dbeafe', color: '#1d4ed8', fontSize: 13, cursor: 'pointer' }}>+ Нова гра</button>}
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          {phase === 'setup' && <button onClick={startGame} disabled={saving} style={{ padding: '7px 20px', border: '0.5px solid #d1d5db', borderRadius: 6, background: '#15803d', color: 'white', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>{saving ? 'Збереження...' : '▶ Розпочати гру'}</button>}
+          {phase === 'playing' && <button onClick={() => setShowModal(true)} style={{ padding: '7px 20px', border: '0.5px solid #fca5a5', borderRadius: 6, background: '#fee2e2', color: '#dc2626', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>🏁 Кінець гри</button>}
+          {phase === 'finished' && <button onClick={resetGame} style={{ padding: '7px 20px', border: '0.5px solid #bfdbfe', borderRadius: 6, background: '#dbeafe', color: '#1d4ed8', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>+ Нова гра</button>}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Stopwatch />
         </div>
       </div>
 
       {msg && <div style={{ background: '#eff6ff', color: '#1d4ed8', textAlign: 'center', padding: 6, fontSize: 12 }}>{msg}</div>}
-      {winner && <div style={{ textAlign: 'center', padding: 8, fontSize: 14, fontWeight: 600, background: winner === 'мирні' ? '#1d4ed8' : '#991b1b', color: 'white' }}>{winner === 'мирні' ? '🏙️ Перемогли Мирні!' : '🔫 Перемогла Мафія!'}</div>}
+      {winner && <div style={{ textAlign: 'center', padding: 8, fontSize: 14, fontWeight: 600, background: winner === 'мирні' ? '#dc2626' : '#111827', color: 'white' }}>{winner === 'мирні' ? '🏙️ Перемогли Мирні!' : '🔫 Перемогла Мафія!'}</div>}
       {phase === 'playing' && activeDay !== null && <div style={{ background: '#eff6ff', color: '#1d4ed8', textAlign: 'center', padding: 5, fontSize: 12 }}>Натисни гравця щоб додати до Дня {activeDay + 1}</div>}
 
       <div style={{ display: 'flex' }}>
@@ -355,15 +422,15 @@ export default function GameTable() {
       )}
 
       {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
-          <div style={{ background: 'white', borderRadius: 12, padding: 24, width: 280, border: '0.5px solid #e5e7eb' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 12, padding: 24, width: 300, border: '0.5px solid #e5e7eb' }}>
             <h2 style={{ fontSize: 15, fontWeight: 600, textAlign: 'center', marginBottom: 4 }}>🏁 Кінець гри</h2>
             <p style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', marginBottom: 20 }}>Яка команда перемогла?</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <button onClick={() => finishGame('мирні')} disabled={saving} style={{ padding: 16, borderRadius: 10, background: '#1d4ed8', color: 'white', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>🏙️<br />Мирні</button>
-              <button onClick={() => finishGame('мафія')} disabled={saving} style={{ padding: 16, borderRadius: 10, background: '#991b1b', color: 'white', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>🔫<br />Мафія</button>
+              <button onClick={() => finishGame('мирні')} disabled={saving} style={{ padding: 20, borderRadius: 10, background: '#dc2626', color: 'white', border: 'none', cursor: 'pointer', fontSize: 15, fontWeight: 700 }}>🏙️<br />Мирні</button>
+              <button onClick={() => finishGame('мафія')} disabled={saving} style={{ padding: 20, borderRadius: 10, background: '#111827', color: 'white', border: 'none', cursor: 'pointer', fontSize: 15, fontWeight: 700 }}>🔫<br />Мафія</button>
             </div>
-            <button onClick={() => setShowModal(false)} style={{ width: '100%', marginTop: 10, color: '#9ca3af', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', padding: 6 }}>Скасувати</button>
+            <button onClick={() => setShowModal(false)} style={{ width: '100%', marginTop: 12, color: '#9ca3af', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', padding: 6 }}>Скасувати</button>
           </div>
         </div>
       )}
