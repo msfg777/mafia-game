@@ -22,8 +22,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (winner === 'мирні' && isCivilian) baseScore = 1;
 
       let bestMoveBonus = 0;
-      if (bestMove && bestMove.playerSeat === player.seat) {
-        const guesses: number[] = [bestMove.guess1, bestMove.guess2, bestMove.guess3].filter(Boolean);
+      if (bestMove && bestMove.p === player.seat) {
+        const guesses: number[] = [bestMove.g1, bestMove.g2, bestMove.g3].filter(Boolean);
         if (guesses.length === 3) {
           const allMafia = guesses.every((seat: number) => {
             const g = players.find((p: { seat: number; role: string }) => p.seat === seat);
